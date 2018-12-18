@@ -4,7 +4,8 @@ import enum
 import itertools
 import collections
 
-class Pt(NamedTuple('Pt', [('x', int), ('y', int)])):
+# Needs to be x, y to sort correctly
+class Pt(NamedTuple('Pt', [('y', int), ('x', int)])):
     def __add__(self, other):
         return type(self)(self.x + other.x, self.y + other.y)
 
@@ -35,8 +36,10 @@ class Grid(dict):
 
         for i, line in enumerate(lines):
             for j, el in enumerate(line):
+                # Only care about points when they are walls
                 self[Pt(i, j)] = el == '#'
 
+                # Add units
                 if el in 'EG':
                     self.units.append(Unit(
                         team={'E': Team.ELF, 'G': Team.GOBLIN}[el],
@@ -67,14 +70,17 @@ class Grid(dict):
 
         in_range = set(pt for target in targets for pt in target.position.nb4 if not self[pt] and pt not in occupied)
 
+        # Not already next to them
         if not unit.position in in_range:
             move = self.find_move(unit.position, in_range)
 
             if move:
                 unit.position = move
 
+        # Get all available targets to attack
         opponents = [target for target in targets if target.position in unit.position.nb4]
 
+        # Attack target in range with lowest hp
         if opponents:
             target = min(opponents, key=lambda unit: (unit.hp, unit.position))
 
@@ -86,7 +92,9 @@ class Grid(dict):
                     raise ElfDied()
 
     def find_move(self, position, targets):
+        # This is a BFS, keeping track of each node's parent
         visiting = collections.deque([(position, 0)])
+        # Holds info of parent node
         meta = {position: (0, None)}
         seen = set()
         occupied = {unit.position for unit in self.units if unit.alive}
@@ -96,6 +104,7 @@ class Grid(dict):
             for nb in pos.nb4:
                 if self[nb] or nb in occupied:
                     continue
+                # Add node and info on which node led to this
                 if nb not in meta or meta[nb] > (dist + 1, pos):
                     meta[nb] = (dist + 1, pos)
                 if nb in seen:
@@ -104,27 +113,32 @@ class Grid(dict):
                     visiting.append((nb, dist + 1))
             seen.add(pos)
 
+        # Find closest nb4; if none exists, don't move
         try:
             min_dist, closest = min((dist, pos) for pos, (dist, parent) in meta.items() if pos in targets)
         except ValueError:
             return
 
+        # Iterate backwards from target location to see which move was first
         while meta[closest][0] > 1:
             closest = meta[closest][1]
 
         return closest
 
-lines = open('input.txt').read().splitlines()
+# lines = open('input.txt').read().splitlines()
+# 
+# grid = Grid(lines)
+# 
+# print('part 1:', grid.play())
+# 
+# for power in itertools.count(4):
+#     try:
+#         outcome = Grid(lines, power).play(elf_death=True)
+#     except ElfDied:
+#         continue
+#     else:
+#         print('part 2:', outcome)
+#         break
 
-grid = Grid(lines)
-
-print('part 1:', grid.play())
-
-for power in itertools.count(4):
-    try:
-        outcome = Grid(lines, power).play(elf_death=True)
-    except ElfDied:
-        continue
-    else:
-        print('part 2:', outcome)
-        break
+a = [Pt(1, 2), Pt(1, 5), Pt(6, 8)]
+print(sorted(a))
